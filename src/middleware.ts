@@ -83,10 +83,10 @@ export async function middleware(request: NextRequest) {
 
   // Refresh session and get user
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  const isAuthenticated = !!user;
+  const isAuthenticated = !!session?.user;
 
   // Redirect unauthenticated users to login for protected routes
   if (!isAuthenticated && PROTECTED_ROUTES.some((r) => pathname.startsWith(r))) {

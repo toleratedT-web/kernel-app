@@ -36,7 +36,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Full navigation so middleware picks up session cookies
+      // Wait briefly for session to persist, then hard navigate
+      await new Promise((r) => setTimeout(r, 500));
       window.location.href = redirectTo;
     } catch {
       setError("An unexpected error occurred. Please try again.");
