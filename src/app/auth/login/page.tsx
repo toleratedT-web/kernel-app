@@ -2,14 +2,13 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { APP } from "@/lib/constants";
 
 export default function LoginPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/receipts";
 
@@ -36,7 +35,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(redirectTo);
+      // Full navigation so middleware picks up session cookies
+      window.location.href = redirectTo;
     } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
