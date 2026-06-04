@@ -36,8 +36,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Navigate to dashboard — AuthGuard retries session check
-      window.location.href = redirectTo;
+      router.push(redirectTo);
     } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
