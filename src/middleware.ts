@@ -88,9 +88,11 @@ export async function middleware(request: NextRequest) {
 
   const isAuthenticated = !!session?.user;
 
-  // Skip auth checks on StackBlitz — client-side AuthGuard handles protection
+  // Redirect unauthenticated users to login for protected routes
   if (!isAuthenticated && PROTECTED_ROUTES.some((r) => pathname.startsWith(r))) {
-    return supabaseResponse;
+    const loginUrl = new URL("/auth/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   if (isAuthenticated && AUTH_ONLY_ROUTES.some((r) => pathname.startsWith(r))) {
