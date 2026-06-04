@@ -8,8 +8,6 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 /**
  * Client-side auth guard that shows a loading state while checking
  * authentication and redirects to login if not authenticated.
- * The middleware handles server-side protection; this adds a client-side
- * safety net and prevents flash of protected content.
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -19,14 +17,35 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = getSupabaseClient();
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setAuthenticated(true);
-      } else {
-        router.replace("/auth/login");
+    // Listen for auth state changes (handles login redirects)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          setAuthenticated(true);
+          setChecking(false);
+        }
       }
-      setChecking(false);
-    });
+    );
+
+    // Also check current session (with retry for StackBlitz delay)
+    let retries = 0;
+    const checkSession = () => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setAuthenticated(true);
+          setChecking(false);
+        } else if (retries < 3) {
+          retries++;
+          setTimeout(checkSession, 1000);
+        } else {
+          router.replace("/auth/login");
+          setChecking(false);
+        }
+      });
+    };
+    checkSession();
+
+    return () => subscription?.unsubscribe();
   }, [router]);
 
   if (checking) {

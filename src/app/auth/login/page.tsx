@@ -36,8 +36,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Wait briefly for session to persist, then hard navigate
-      await new Promise((r) => setTimeout(r, 500));
+      // Navigate to dashboard — AuthGuard retries session check
       window.location.href = redirectTo;
     } catch {
       setError("An unexpected error occurred. Please try again.");

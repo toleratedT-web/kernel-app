@@ -2,16 +2,15 @@
 // Kernel — Supabase Browser Client
 // ============================================================================
 // Singleton browser client for client-side usage.
-// Refreshes session automatically via cookies.
+// Uses localStorage for session persistence (works around StackBlitz cookie issues).
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 let client: SupabaseClient | null = null;
 
 /**
  * Get or create a Supabase client for browser-side usage.
- * Uses NEXT_PUBLIC_* environment variables.
  */
 export function getSupabaseClient(): SupabaseClient {
   if (client) return client;
@@ -25,6 +24,12 @@ export function getSupabaseClient(): SupabaseClient {
     );
   }
 
-  client = createBrowserClient(supabaseUrl, supabaseAnonKey);
+  client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      storageKey: "kernel-auth",
+      autoRefreshToken: true,
+    },
+  });
   return client;
 }
