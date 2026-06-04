@@ -36,7 +36,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(redirectTo);
+      // Full navigation so middleware picks up session cookies
+      window.location.href = redirectTo;
     } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {

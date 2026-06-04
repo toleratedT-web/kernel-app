@@ -48,7 +48,8 @@ export default function SignupPage() {
       }
 
       // For MVP without email verification, redirect to dashboard
-      router.push("/receipts");
+      // Full navigation so middleware picks up session cookies
+      window.location.href = "/receipts";
     } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
