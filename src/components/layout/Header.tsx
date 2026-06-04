@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { UserMenu } from "@/components/UserMenu";
+import { UserMenu } from "@/components/layout/UserMenu";
 
 export interface HeaderProps {
   user: {

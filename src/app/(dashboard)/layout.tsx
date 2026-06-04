@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Sidebar } from "@/components/Sidebar";
-import { Header } from "@/components/Header";
-import { AuthGuard } from "@/components/AuthGuard";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 

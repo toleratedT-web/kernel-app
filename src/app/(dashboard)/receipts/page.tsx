@@ -2,9 +2,9 @@
 
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ReceiptList } from "@/components/ReceiptList";
-import { ScanButton } from "@/components/ScanButton";
-import { ScanModal } from "@/components/ScanModal";
+import { ReceiptList } from "@/components/receipts/ReceiptList";
+import { ScanButton } from "@/components/receipts/ScanButton";
+import { ScanModal } from "@/components/receipts/ScanModal";
 import type { Receipt } from "@/types";
 
 export default function ReceiptsPage() {

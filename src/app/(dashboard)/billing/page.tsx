@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { PricingCards } from "@/components/PricingCards";
+import { PricingCards } from "@/components/billing/PricingCards";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";

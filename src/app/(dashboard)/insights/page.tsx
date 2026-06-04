@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { MonthlySummary } from "@/components/MonthlySummary";
-import { SpendingChart } from "@/components/SpendingChart";
-import { TopMerchants } from "@/components/TopMerchants";
+import { MonthlySummary } from "@/components/insights/MonthlySummary";
+import { SpendingChart } from "@/components/insights/SpendingChart";
+import { TopMerchants } from "@/components/insights/TopMerchants";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/Button";
 
