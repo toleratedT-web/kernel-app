@@ -1,4 +1,4 @@
-import { AuthRedirect } from "@/components/auth/AuthRedirect";
+import { AuthRedirect } from "@/components/AuthRedirect";
 
 export default function HomePage() {
   return (
