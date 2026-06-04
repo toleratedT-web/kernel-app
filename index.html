@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kernel — AI Receipt Scanner & Spending Tracker</title>
+  <meta name="description" content="Snap a receipt, AI extracts every item and price, one tap to Google Sheets. Track your spending automatically.">
+
+  <!-- Fonts with font-display swap to prevent FOIT -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Preconnect for performance -->
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
+  <style>
+    /* ===== CRITICAL CSS (inlined for fast first paint) ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --color-accent: #B8845C;
+      --color-accent-hover: #C99770;
+      --color-accent-subtle: rgba(184, 132, 92, 0.12);
+      --color-accent-glow: rgba(184, 132, 92, 0.25);
+      --color-bg: #0f0f0f;
+      --color-surface: #1a1a18;
+      --color-surface-hover: #242422;
+      --color-text: #f0ece4;
+      --color-text-secondary: #a09b92;
+      --color-text-tertiary: #6b6762;
+      --color-border: #2a2a28;
+      --color-success: #4ade80;
+      --color-nav-bg: rgba(15, 15, 15, 0.85);
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --max-width: 1100px;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    [data-theme="light"] {
+      --color-accent: #9C6B48;
+      --color-accent-hover: #B07D58;
+      --color-accent-subtle: rgba(156, 107, 72, 0.1);
+      --color-accent-glow: rgba(156, 107, 72, 0.18);
+      --color-bg: #f6f3ef;
+      --color-surface: #ffffff;
+      --color-surface-hover: #f0ede8;
+      --color-text: #1c1c1a;
+      --color-text-secondary: #6b6762;
+      --color-text-tertiary: #95908a;
+      --color-border: #e0dbd4;
+      --color-success: #16a34a;
+      --color-nav-bg: rgba(246, 243, 239, 0.85);
+    }
+
+    html {
+      scroll-behavior: smooth;
+      font-size: 16px;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--color-bg);
+      color: var(--color-text);
+      line-height: 1.6;
+      transition: background 0.3s ease, color 0.3s ease;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    /* Smooth scroll snap — full-screen sections on mobile */
+    @media (max-width: 768px) {
+      body {
+        scroll-snap-type: y mandatory;
+        overscroll-behavior: none;
+      }
+      body > section,
+      body > .hero,
+      body > footer,
+      body > .cta-section {
+        scroll-snap-align: start;
+        scroll-snap-stop: normal;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+      }
+      /* Visual lift — top shadow creates stacking depth */
+      body > section::after,
+      body > .cta-section::after {
+        content: '';
+        position: absolute;
+        top: -6px;
+        left: 0;
+        right: 0;
+        height: 12px;
+        background: linear-gradient(to bottom, var(--color-bg), transparent);
+        z-index: 2;
+        pointer-events: none;
+      }
+      /* Sections with lots of content can scroll within */
+      #features, #testimonials {
+        justify-content: flex-start;
+        padding-top: 80px;
+        padding-bottom: 40px;
+      }
+      .hero {
+        padding-top: 100px;
+        padding-bottom: 40px;
+      }
+      .cta-section {
+        padding: 60px 0;
+      }
+      footer {
+        min-height: auto !important;
+        padding: 32px 0 80px;
+      }
+    }
+
+    a { color: var(--color-accent); text-decoration: none; transition: color 0.2s; }
+    a:hover { color: var(--color-accent-hover); }
+
+    .container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
+
+    /* ===== SCROLL PROGRESS BAR ===== */
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 2px;
+      background: var(--color-accent);
+      z-index: 200;
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    /* ===== THEME TOGGLE ===== */
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      cursor: pointer;
+      color: var(--color-text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+    .theme-toggle:hover {
+      background: var(--color-surface-hover);
+      border-color: var(--color-accent);
+      transform: scale(1.05);
+    }
+    .theme-toggle:active { transform: scale(0.95); }
+    .theme-toggle svg { width: 20px; height: 20px; }
+
+    /* ===== NAVBAR ===== */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: var(--color-nav-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--color-border);
+      transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+    }
+
+    nav.scrolled {
+      box-shadow: 0 1px 20px rgba(0,0,0,0.3);
+    }
+
+    nav .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.125rem;
+      color: var(--color-text);
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .nav-logo:hover { opacity: 0.8; color: var(--color-text); }
+
+    .nav-logo svg { width: 28px; height: 28px; flex-shrink: 0; }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      transition: color 0.2s;
+      position: relative;
+    }
+
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 0;
+      height: 1.5px;
+      background: var(--color-accent);
+      transition: width 0.25s ease;
+    }
+    .nav-links a:hover { color: var(--color-text); }
+    .nav-links a:hover::after { width: 100%; }
+
+    .nav-cta {
+      background: var(--color-accent);
+      color: #fff !important;
+      padding: 8px 20px;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: background 0.2s, transform 0.15s !important;
+    }
+    .nav-cta::after { display: none !important; }
+    .nav-cta:hover { background: var(--color-accent-hover); color: #fff !important; transform: translateY(-1px); }
+
+    .mobile-menu-btn {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--color-text);
+      cursor: pointer;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      transition: background 0.2s;
+    }
+    .mobile-menu-btn:hover { background: var(--color-surface-hover); }
+    .mobile-menu-btn svg { width: 24px; height: 24px; display: block; }
+
+    /* ===== SCROLL ANIMATIONS ===== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-delay-1 { transition-delay: 0.05s; }
+    .reveal-delay-2 { transition-delay: 0.1s; }
+    .reveal-delay-3 { transition-delay: 0.15s; }
+    .reveal-delay-4 { transition-delay: 0.2s; }
+    .reveal-delay-5 { transition-delay: 0.25s; }
+
+    @media (max-width: 768px) {
+      .reveal {
+        transform: translateY(16px);
+        transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1), transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .reveal-delay-1 { transition-delay: 0s; }
+      .reveal-delay-2 { transition-delay: 0.03s; }
+      .reveal-delay-3 { transition-delay: 0.06s; }
+      .reveal-delay-4 { transition-delay: 0.09s; }
+      .reveal-delay-5 { transition-delay: 0.12s; }
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      padding: 160px 0 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -30%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, var(--color-accent-subtle) 0%, transparent 70%);
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 100px;
+      background: var(--color-accent-subtle);
+      border: 1px solid rgba(184, 132, 92, 0.2);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--color-accent);
+      margin-bottom: 28px;
+      transition: background 0.3s, border-color 0.3s;
+      position: relative;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.75rem, 6.5vw, 4.25rem);
+      font-weight: 800;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .hero h1 span { color: var(--color-accent); }
+
+    .hero p {
+      font-size: 1.125rem;
+      color: var(--color-text-secondary);
+      max-width: 580px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+      position: relative;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      position: relative;
+    }
+
+    .btn-primary {
+      background: var(--color-accent);
+      color: #fff;
+      padding: 16px 36px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 16px var(--color-accent-glow);
+      line-height: 1;
+    }
+    .btn-primary:hover {
+      background: var(--color-accent-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px var(--color-accent-glow);
+      color: #fff;
+    }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-secondary {
+      background: var(--color-surface);
+      color: var(--color-text);
+      padding: 16px 36px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      border: 1px solid var(--color-border);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+      line-height: 1;
+    }
+    .btn-secondary:hover {
+      background: var(--color-surface-hover);
+      border-color: var(--color-accent);
+      transform: translateY(-2px);
+    }
+    .btn-secondary:active { transform: translateY(0); }
+
+    /* Hero trust signal */
+    .hero-trust {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 40px;
+      position: relative;
+    }
+
+    .hero-trust-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8125rem;
+      color: var(--color-text-tertiary);
+    }
+
+    .hero-trust-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-success);
+    }
+
+    .hero-trust-item strong {
+      color: var(--color-text-secondary);
+      font-weight: 600;
+    }
+
+    /* ===== SECTION COMMON ===== */
+    section { padding: 100px 0; }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    .section-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-accent);
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .section-subtitle {
+      font-size: 1.0625rem;
+      color: var(--color-text-secondary);
+      max-width: 540px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    /* ===== FEATURES ===== */
+    #features { background: var(--color-surface); transition: background 0.3s; }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 32px;
+      transition: background 0.3s, border-color 0.3s, transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s;
+      cursor: default;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--color-accent);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25), 0 0 0 1px var(--color-accent);
+    }
+
+    [data-theme="light"] .feature-card:hover {
+      box-shadow: 0 12px 40px rgba(0,0,0,0.06), 0 0 0 1px var(--color-accent);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: var(--color-accent-subtle);
+      border: 1px solid rgba(184, 132, 92, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .feature-icon svg { width: 24px; height: 24px; stroke: var(--color-accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .feature-card h3 {
+      font-size: 1.0625rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      line-height: 1.7;
+    }
+
+    /* ===== HOW IT WORKS ===== */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+    }
+
+    .step-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 28px 20px;
+      text-align: center;
+      transition: background 0.3s, border-color 0.3s, transform 0.25s;
+      cursor: default;
+    }
+    .step-card:hover {
+      border-color: var(--color-accent);
+      transform: translateY(-2px);
+    }
+
+    .step-number {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--color-accent);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      font-weight: 700;
+      margin: 0 auto 16px;
+      transition: transform 0.3s;
+    }
+    .step-card:hover .step-number {
+      transform: scale(1.1);
+    }
+
+    .step-card h4 {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .step-card p {
+      font-size: 0.8125rem;
+      color: var(--color-text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ===== TESTIMONIALS ===== */
+    #testimonials { background: var(--color-surface); transition: background 0.3s; }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .testimonial-card {
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 32px;
+      transition: border-color 0.3s, transform 0.25s;
+    }
+    .testimonial-card:hover {
+      border-color: var(--color-accent);
+      transform: translateY(-2px);
+    }
+
+    .testimonial-stars {
+      color: var(--color-accent);
+      font-size: 0.875rem;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+    }
+
+    .testimonial-quote {
+      font-size: 0.9375rem;
+      color: var(--color-text);
+      line-height: 1.7;
+      margin-bottom: 20px;
+      font-style: italic;
+    }
+
+    .testimonial-author {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .testimonial-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--color-accent-subtle);
+      border: 1px solid rgba(184, 132, 92, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-accent);
+      font-weight: 700;
+      font-size: 0.875rem;
+      flex-shrink: 0;
+    }
+
+    .testimonial-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .testimonial-role {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+    }
+
+    /* ===== PRICING ===== */
+    .pricing-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+
+    .pricing-toggle-label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+    }
+    .pricing-toggle-label.active { color: var(--color-text); }
+
+    .pricing-toggle-badge {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      background: var(--color-accent);
+      color: #fff;
+      padding: 2px 10px;
+      border-radius: 100px;
+      margin-left: 6px;
+    }
+
+    .toggle-switch {
+      width: 48px;
+      height: 28px;
+      border-radius: 14px;
+      background: var(--color-border);
+      border: none;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.25s;
+      padding: 0;
+    }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--color-text);
+      transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .toggle-switch.active::after {
+      transform: translateX(20px);
+    }
+    .toggle-switch.active { background: var(--color-accent); }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    .pricing-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 36px 28px;
+      text-align: center;
+      transition: background 0.3s, border-color 0.3s, transform 0.25s cubic-bezier(0.22,1,0.36,1), box-shadow 0.25s;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .pricing-card:hover { transform: translateY(-3px); }
+
+    .pricing-card.featured {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 1px var(--color-accent), 0 8px 32px rgba(184, 132, 92, 0.08);
+    }
+
+    .pricing-card.featured::before {
+      content: 'Most Popular';
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--color-accent);
+      color: #fff;
+      padding: 4px 18px;
+      border-radius: 100px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    .pricing-name {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .pricing-price {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+      line-height: 1.1;
+    }
+
+    .pricing-price .original {
+      font-size: 1.25rem;
+      color: var(--color-text-tertiary);
+      text-decoration: line-through;
+      font-weight: 500;
+      margin-right: 8px;
+    }
+
+    .pricing-price span {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+    }
+
+    .pricing-desc {
+      font-size: 0.8125rem;
+      color: var(--color-text-secondary);
+      margin-bottom: 24px;
+    }
+
+    .pricing-features {
+      list-style: none;
+      text-align: left;
+      margin-bottom: 28px;
+      flex: 1;
+    }
+
+    .pricing-features li {
+      padding: 8px 0;
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pricing-features li::before {
+      content: '';
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color-accent);
+      opacity: 0.7;
+      flex-shrink: 0;
+      transition: opacity 0.2s;
+    }
+    .pricing-features li:hover::before { opacity: 1; }
+
+    .pricing-card .btn-primary,
+    .pricing-card .btn-secondary {
+      width: 100%;
+      text-align: center;
+      display: block;
+      padding: 14px;
+      font-size: 0.9375rem;
+    }
+
+    .pricing-card .btn-secondary {
+      background: transparent;
+    }
+
+    .pricing-security {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+    }
+
+    .pricing-security-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+    }
+
+    .pricing-security-item svg {
+      width: 16px;
+      height: 16px;
+      stroke: var(--color-accent);
+      fill: none;
+      stroke-width: 2;
+    }
+
+    /* ===== FAQ ===== */
+    .faq-list {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .faq-item {
+      border-bottom: 1px solid var(--color-border);
+      transition: border-color 0.3s;
+    }
+
+    .faq-question {
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--color-text);
+      font-size: 1rem;
+      font-weight: 500;
+      padding: 20px 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      text-align: left;
+      gap: 16px;
+      font-family: var(--font);
+      transition: color 0.2s;
+    }
+    .faq-question:hover { color: var(--color-accent); }
+
+    .faq-question svg {
+      width: 20px;
+      height: 20px;
+      stroke: var(--color-text-secondary);
+      fill: none;
+      stroke-width: 2;
+      flex-shrink: 0;
+      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .faq-item.open .faq-question svg { transform: rotate(45deg); }
+
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s cubic-bezier(0.22, 1, 0.36, 1), padding 0.3s;
+      padding: 0;
+    }
+
+    .faq-item.open .faq-answer {
+      max-height: 300px;
+      padding: 0 0 20px;
+    }
+
+    .faq-answer p {
+      font-size: 0.9375rem;
+      color: var(--color-text-secondary);
+      line-height: 1.7;
+    }
+
+    /* ===== FINAL CTA ===== */
+    .cta-section {
+      background: var(--color-surface);
+      text-align: center;
+      border-top: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--color-border);
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    .cta-section .section-title { max-width: 600px; margin: 0 auto 16px; }
+
+    .cta-section .hero-buttons { margin-top: 32px; }
+
+    .cta-section .hero-trust { margin-top: 32px; }
+
+    /* ===== STICKY MOBILE CTA ===== */
+    .mobile-sticky-cta {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 16px;
+      background: var(--color-surface);
+      border-top: 1px solid var(--color-border);
+      z-index: 99;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: background 0.3s, border-color 0.3s, transform 0.3s;
+      transform: translateY(0);
+    }
+
+    .mobile-sticky-cta.hidden {
+      transform: translateY(100%);
+    }
+
+    .mobile-sticky-cta .btn-primary {
+      width: 100%;
+      text-align: center;
+      padding: 14px 24px;
+      font-size: 0.9375rem;
+    }
+
+    /* ===== FOOTER ===== */
+    footer {
+      border-top: 1px solid var(--color-border);
+      padding: 48px 0 24px;
+      transition: border-color 0.3s;
+    }
+
+    footer .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    footer .nav-logo { font-size: 1rem; }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 0.8125rem;
+      color: var(--color-text-tertiary);
+    }
+    .footer-links a:hover { color: var(--color-text); }
+
+    .footer-copy {
+      font-size: 0.8125rem;
+      color: var(--color-text-tertiary);
+    }
+
+    /* ===== SCROLL TO TOP ===== */
+    .scroll-top {
+      position: fixed;
+      bottom: 80px;
+      right: 24px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      z-index: 90;
+      opacity: 0;
+      transform: translateY(12px) scale(0.85);
+      pointer-events: none;
+      transition: opacity 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+                  transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .scroll-top.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .scroll-top:hover .scroll-top-bg {
+      stroke: var(--color-accent-subtle);
+    }
+
+    .scroll-top:active {
+      transform: scale(0.92) !important;
+    }
+
+    .scroll-top-ring {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform: rotate(-90deg);
+    }
+
+    .scroll-top-bg {
+      stroke: var(--color-border);
+      transition: stroke 0.2s;
+    }
+
+    .scroll-top-fill {
+      stroke: var(--color-accent);
+      transition: stroke-dashoffset 0.1s linear;
+    }
+
+    .scroll-top-arrow {
+      width: 18px;
+      height: 18px;
+      color: var(--color-text-secondary);
+      position: relative;
+      z-index: 1;
+      transition: color 0.2s, transform 0.2s;
+    }
+
+    .scroll-top:hover .scroll-top-arrow {
+      color: var(--color-accent);
+      transform: translateY(-2px);
+    }
+
+    @media (max-width: 768px) {
+      .scroll-top {
+        bottom: 80px;
+        right: 16px;
+        width: 40px;
+        height: 40px;
+      }
+      .scroll-top-arrow { width: 16px; height: 16px; }
+      .scroll-top-ring { width: 40px; height: 40px; }
+    }
+
+    /* ===== RESPONSIVE - MOBILE FIRST ===== */
+
+    /* Small phones */
+    @media (max-width: 400px) {
+      .container { padding: 0 16px; }
+
+      .hero h1 { font-size: 2rem; }
+      .hero p { font-size: 0.9375rem; padding: 0 4px; }
+      .section-title { font-size: 1.5rem; }
+      .pricing-card { padding: 24px 20px; }
+      .pricing-price { font-size: 2rem; }
+      .step-card { padding: 20px 16px; }
+      .testimonial-card { padding: 24px; }
+    }
+
+    /* Phones and small tablets */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .mobile-menu-btn { display: block; }
+      .mobile-sticky-cta { display: block; }
+
+      .nav-links.open {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 64px;
+        left: 0;
+        right: 0;
+        background: var(--color-nav-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        padding: 24px 24px 32px;
+        border-bottom: 1px solid var(--color-border);
+        gap: 20px;
+        align-items: center;
+      }
+
+      .nav-links.open li { width: 100%; text-align: center; }
+      .nav-links.open a { font-size: 1rem; display: block; padding: 8px 0; }
+      .nav-links.open a::after { display: none; }
+      .nav-links.open .nav-cta { display: inline-block; width: auto; padding: 12px 40px; }
+
+      /* Hero */
+      body { padding-bottom: 64px; }
+
+      .hero {
+        padding: 100px 0 56px;
+      }
+
+      .hero-badge {
+        font-size: 0.75rem;
+        padding: 5px 14px;
+        margin-bottom: 20px;
+      }
+
+      .hero h1 {
+        font-size: 2.25rem;
+        margin-bottom: 16px;
+      }
+
+      .hero p {
+        font-size: 0.9375rem;
+        max-width: 100%;
+        padding: 0 8px;
+        margin-bottom: 28px;
+      }
+
+      .hero-buttons {
+        flex-direction: column;
+        gap: 12px;
+        padding: 0 16px;
+      }
+
+      .hero-buttons .btn-primary,
+      .hero-buttons .btn-secondary {
+        width: 100%;
+        padding: 16px 24px;
+        font-size: 1rem;
+        text-align: center;
+      }
+
+      .hero-trust {
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 28px;
+      }
+
+      .hero::before {
+        width: 400px;
+        height: 400px;
+        top: -20%;
+      }
+
+      /* Sections */
+      section { padding: 64px 0; }
+      .section-header { margin-bottom: 40px; }
+
+      .section-title { font-size: 1.625rem; }
+      .section-subtitle { font-size: 0.9375rem; padding: 0 16px; }
+
+      /* Features */
+      .features-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .feature-card { padding: 24px; }
+      .feature-icon { width: 44px; height: 44px; margin-bottom: 16px; }
+      .feature-icon svg { width: 20px; height: 20px; }
+      .feature-card h3 { font-size: 1rem; }
+      .feature-card p { font-size: 0.8125rem; }
+
+      /* Steps */
+      .steps {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .step-card {
+        display: flex;
+        align-items: center;
+        text-align: left;
+        padding: 16px 20px;
+        gap: 16px;
+      }
+
+      .step-number {
+        margin: 0;
+        width: 32px;
+        height: 32px;
+        font-size: 0.8125rem;
+        flex-shrink: 0;
+      }
+
+      .step-card h4 { font-size: 0.9375rem; margin-bottom: 2px; }
+      .step-card p { font-size: 0.8125rem; margin: 0; }
+
+      /* Testimonials */
+      .testimonials-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .testimonial-card { padding: 24px; }
+
+      /* Pricing */
+      .pricing-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        max-width: 400px;
+      }
+
+      .pricing-card { padding: 28px 24px; }
+
+      .pricing-card.featured {
+        order: -1;
+      }
+      .pricing-card.featured:hover { transform: translateY(-2px); }
+
+      .pricing-price { font-size: 2.25rem; }
+
+      .pricing-features li { font-size: 0.8125rem; padding: 6px 0; }
+
+      .pricing-security {
+        gap: 16px;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .pricing-toggle { margin-bottom: 36px; }
+
+      /* FAQ */
+      .faq-question { font-size: 0.9375rem; padding: 16px 0; }
+
+      /* CTA section */
+      .cta-section { padding: 64px 24px; }
+
+      /* Footer */
+      footer { padding: 32px 0 80px; }
+
+      footer .container {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+      }
+
+      .footer-links { flex-wrap: wrap; justify-content: center; gap: 20px; }
+      .footer-copy { font-size: 0.75rem; }
+    }
+
+    /* Tablet */
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .features-grid .feature-card:last-child { grid-column: 1 / -1; max-width: 50%; margin: 0 auto; }
+
+      .steps { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+      .steps .step-card:nth-child(4),
+      .steps .step-card:nth-child(5) { margin-top: 0; }
+
+      .testimonials-grid { grid-template-columns: repeat(2, 1fr); }
+      .testimonials-grid .testimonial-card:last-child { display: none; }
+
+      .pricing-grid { gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Scroll progress bar -->
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav id="navbar">
+    <div class="container">
+      <a href="#" class="nav-logo">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 2C10 2 6 6 6 10C6 14 10 18 14 22C18 18 22 14 22 10C22 6 18 2 14 2Z" fill="var(--color-accent)" opacity="0.15"/>
+          <path d="M14 4C12 4 10 6 10 8.5C10 11 12 13.5 14 16C16 13.5 18 11 18 8.5C18 6 16 4 14 4Z" fill="var(--color-accent)"/>
+          <path d="M14 16C14 16 10 20 10 24H18C18 20 14 16 14 16Z" fill="var(--color-accent)" opacity="0.6"/>
+        </svg>
+        Kernel
+      </a>
+
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#testimonials">Testimonials</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#" class="nav-cta">Try Kernel</a></li>
+        <li>
+          <button class="theme-toggle" id="themeToggle" aria-label="Toggle color scheme">
+            <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"/>
+              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </svg>
+          </button>
+        </li>
+      </ul>
+
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12h18M3 6h18M3 18h18"/>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge reveal">Receipt scanning, reimagined</div>
+      <h1 class="reveal reveal-delay-1">The <span>kernel</span> of your spending</h1>
+      <p class="reveal reveal-delay-2">Snap a receipt. AI extracts every item, price, and tax. One tap to your Google Sheet. Track your spending without lifting a finger.</p>
+      <div class="hero-buttons reveal reveal-delay-3">
+        <button class="btn-primary">Scan your first receipt free</button>
+        <button class="btn-secondary">See how it works</button>
+      </div>
+      <div class="hero-trust reveal reveal-delay-4">
+        <div class="hero-trust-item">
+          <span class="hero-trust-dot"></span>
+          <span><strong>Free</strong> to start — no credit card</span>
+        </div>
+        <div class="hero-trust-item">
+          <span class="hero-trust-dot"></span>
+          <span><strong>256-bit</strong> encrypted</span>
+        </div>
+        <div class="hero-trust-item">
+          <span class="hero-trust-dot"></span>
+          <span><strong>Cancel</strong> anytime</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FEATURES ===== -->
+  <section id="features">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-label">Features</div>
+        <h2 class="section-title">From snap to sheet in seconds</h2>
+        <p class="section-subtitle">No manual entry. No bloated dashboards. Just your receipts, extracted and organised.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card reveal reveal-delay-1">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </div>
+          <h3>Snap any receipt</h3>
+          <p>Take a photo or upload a scan. Kernel reads receipts from any store, any format, any currency — paper or digital.</p>
+        </div>
+
+        <div class="feature-card reveal reveal-delay-2">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+          </div>
+          <h3>AI extracts everything</h3>
+          <p>Each item, price, quantity, and tax extracted automatically. Quick-edit to fix anything in seconds — or just trust it.</p>
+        </div>
+
+        <div class="feature-card reveal reveal-delay-3">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <line x1="3" y1="9" x2="21" y2="9"/>
+              <line x1="9" y1="21" x2="9" y2="9"/>
+            </svg>
+          </div>
+          <h3>One tap to Sheets</h3>
+          <p>Every line item goes straight to your Google Sheet. Use your own template. Your data stays yours — we just move it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section id="how">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-label">How it works</div>
+        <h2 class="section-title">Five steps, no fuss</h2>
+        <p class="section-subtitle">From paper receipt to organised spreadsheet in under a minute. No training needed.</p>
+      </div>
+
+      <div class="steps">
+        <div class="step-card reveal reveal-delay-1">
+          <div class="step-number">1</div>
+          <h4>Snap</h4>
+          <p>Take a photo of any receipt with your phone.</p>
+        </div>
+        <div class="step-card reveal reveal-delay-2">
+          <div class="step-number">2</div>
+          <h4>Extract</h4>
+          <p>AI reads every line item, price, and total.</p>
+        </div>
+        <div class="step-card reveal reveal-delay-3">
+          <div class="step-number">3</div>
+          <h4>Review</h4>
+          <p>Quick-edit any mistakes in seconds.</p>
+        </div>
+        <div class="step-card reveal reveal-delay-4">
+          <div class="step-number">4</div>
+          <h4>Export</h4>
+          <p>One tap sends everything to your Google Sheet.</p>
+        </div>
+        <div class="step-card reveal reveal-delay-5">
+          <div class="step-number">5</div>
+          <h4>Track</h4>
+          <p>See monthly spending insights and trends.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TESTIMONIALS ===== -->
+  <section id="testimonials">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-label">Testimonials</div>
+        <h2 class="section-title">Used by people like you</h2>
+        <p class="section-subtitle">Real feedback from real users will appear here once Kernel launches.</p>
+      </div>
+
+      <div class="testimonials-grid">
+        <div class="testimonial-card reveal reveal-delay-1" style="opacity:0.5;">
+          <div class="testimonial-stars" style="color:var(--color-text-tertiary);">★★★★★</div>
+          <p class="testimonial-quote" style="color:var(--color-text-tertiary);">Your testimonial could go here. Share how Kernel helped you take control of your receipts and spending.</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar" style="background:var(--color-border);color:var(--color-text-tertiary);">?</div>
+            <div>
+              <div class="testimonial-name" style="color:var(--color-text-tertiary);">Your Name</div>
+              <div class="testimonial-role">Your Role</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card reveal reveal-delay-2" style="opacity:0.5;">
+          <div class="testimonial-stars" style="color:var(--color-text-tertiary);">★★★★★</div>
+          <p class="testimonial-quote" style="color:var(--color-text-tertiary);">Real testimonials build trust. They'll be added here once Kernel is being used — by people like you.</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar" style="background:var(--color-border);color:var(--color-text-tertiary);">?</div>
+            <div>
+              <div class="testimonial-name" style="color:var(--color-text-tertiary);">Your Name</div>
+              <div class="testimonial-role">Your Role</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card reveal reveal-delay-3" style="opacity:0.5;">
+          <div class="testimonial-stars" style="color:var(--color-text-tertiary);">★★★★★</div>
+          <p class="testimonial-quote" style="color:var(--color-text-tertiary);">This space is reserved for honest feedback from real users. No fake quotes, no made-up names.</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar" style="background:var(--color-border);color:var(--color-text-tertiary);">?</div>
+            <div>
+              <div class="testimonial-name" style="color:var(--color-text-tertiary);">Your Name</div>
+              <div class="testimonial-role">Your Role</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PRICING ===== -->
+  <section id="pricing">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-label">Pricing</div>
+        <h2 class="section-title">Fair pricing, no surprises</h2>
+        <p class="section-subtitle">Start free. Upgrade when you need more. Cancel anytime — no questions asked.</p>
+      </div>
+
+      <div class="pricing-toggle reveal">
+        <span class="pricing-toggle-label active" id="monthlyLabel">Monthly</span>
+        <button class="toggle-switch" id="billingToggle" aria-label="Toggle annual billing"></button>
+        <span class="pricing-toggle-label" id="annualLabel">Annual <span class="pricing-toggle-badge">Save 25%</span></span>
+      </div>
+
+      <div class="pricing-grid" id="pricingGrid">
+        <!-- Free -->
+        <div class="pricing-card reveal reveal-delay-1">
+          <div class="pricing-name">Free</div>
+          <div class="pricing-price" data-monthly="$0" data-annual="$0">$0 <span>/mo</span></div>
+          <p class="pricing-desc">For trying Kernel</p>
+          <ul class="pricing-features">
+            <li>10 receipts per month</li>
+            <li>AI line-item extraction</li>
+            <li>Google Sheets export</li>
+            <li>Basic receipt history</li>
+          </ul>
+          <button class="btn-secondary">Get started</button>
+        </div>
+
+        <!-- Starter (Featured) -->
+        <div class="pricing-card featured reveal reveal-delay-2">
+          <div class="pricing-name">Starter</div>
+          <div class="pricing-price" data-monthly="$5" data-annual="$45">
+            <span class="original" id="starterOriginal" style="display:none;">$60</span>
+            $5 <span>/mo</span>
+          </div>
+          <p class="pricing-desc" id="starterDesc">For regular use</p>
+          <ul class="pricing-features">
+            <li>250 receipts per month</li>
+            <li>AI line-item extraction</li>
+            <li>Google Sheets export</li>
+            <li>Monthly spending insights</li>
+            <li>Spending trends and patterns</li>
+          </ul>
+          <button class="btn-primary">Start free trial</button>
+        </div>
+
+        <!-- Pro -->
+        <div class="pricing-card reveal reveal-delay-3">
+          <div class="pricing-name">Pro</div>
+          <div class="pricing-price" data-monthly="$10" data-annual="$84">
+            <span class="original" id="proOriginal" style="display:none;">$120</span>
+            $10 <span>/mo</span>
+          </div>
+          <p class="pricing-desc" id="proDesc">For power users</p>
+          <ul class="pricing-features">
+            <li>Unlimited receipts</li>
+            <li>AI line-item extraction</li>
+            <li>Google Sheets export</li>
+            <li>Monthly spending insights</li>
+            <li>Multi-currency support</li>
+            <li>CSV export</li>
+          </ul>
+          <button class="btn-secondary">Start free trial</button>
+        </div>
+      </div>
+
+      <div class="pricing-security reveal">
+        <div class="pricing-security-item">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          256-bit encryption
+        </div>
+        <div class="pricing-security-item">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Privacy-first
+        </div>
+        <div class="pricing-security-item">
+          <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Cancel anytime
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FAQ ===== -->
+  <section id="faq">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-label">FAQ</div>
+        <h2 class="section-title">Quick answers</h2>
+        <p class="section-subtitle">Everything you need to know before signing up.</p>
+      </div>
+
+      <div class="faq-list">
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            What types of receipts can Kernel read?
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>Any printed or digital receipt. Paper receipts, PDF invoices, email confirmations, even screenshots. Kernel reads any format and extracts every line item.</p>
+          </div>
+        </div>
+
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            Can I use my own Google Sheet template?
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>Yes. Connect any Google Sheet and choose which columns to fill. Kernel works with your existing setup — you don't need to change anything.</p>
+          </div>
+        </div>
+
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            Is my financial data secure?
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>All data is encrypted in transit and at rest using 256-bit encryption. Receipt images are stored securely, and your Google Sheet data never touches our servers — it goes directly from our AI to your sheet.</p>
+          </div>
+        </div>
+
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            What happens if the AI gets something wrong?
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>Every extraction has a quick-edit screen where you can correct any field in seconds. The AI learns from corrections and gets better over time.</p>
+          </div>
+        </div>
+
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            Can I cancel anytime?
+            <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>Yes. No contracts, no cancellation fees, no awkward phone calls. You keep your data, your sheets, and your receipt history even after cancelling.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FINAL CALL TO ACTION ===== -->
+  <section class="cta-section">
+    <div class="container">
+      <div class="section-label reveal">Ready to get started?</div>
+      <h2 class="section-title reveal reveal-delay-1">Stop chasing receipts.<br>Start tracking your spending.</h2>
+      <p class="section-subtitle reveal reveal-delay-2">Free to start. No credit card. Set up in under a minute.</p>
+      <div class="hero-buttons reveal reveal-delay-3">
+        <button class="btn-primary">Scan your first receipt free</button>
+      </div>
+      <div class="hero-trust reveal reveal-delay-4">
+        <div class="hero-trust-item">
+          <span class="hero-trust-dot"></span>
+          <span>Encrypted. Private. No hidden fees.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer>
+    <div class="container">
+      
+      <ul class="footer-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#">Privacy</a></li>
+        <li><a href="#">Terms</a></li>
+      </ul>
+
+      <div class="footer-copy">Kernel 2026</div>
+    </div>
+  </footer>
+
+  <!-- ===== SCROLL TO TOP ===== -->
+  <button class="scroll-top" id="scrollTopBtn" aria-label="Scroll to top">
+    <svg class="scroll-top-ring" viewBox="0 0 40 40" width="40" height="40">
+      <circle class="scroll-top-bg" cx="20" cy="20" r="18" fill="none" stroke-width="2"/>
+      <circle class="scroll-top-fill" cx="20" cy="20" r="18" fill="none" stroke-width="2"
+        stroke-dasharray="113.1" stroke-dashoffset="113.1"
+        stroke-linecap="round"/>
+    </svg>
+    <svg class="scroll-top-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 15l-6-6-6 6"/>
+    </svg>
+  </button>
+
+  <!-- ===== MOBILE STICKY CTA ===== -->
+  <div class="mobile-sticky-cta" id="mobileStickyCta">
+    <button class="btn-primary">Start scanning free</button>
+  </div>
+
+  <script>
+    // ===== THEME TOGGLE =====
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const html = document.documentElement;
+
+    const saved = localStorage.getItem('kernel-theme');
+    if (saved) html.setAttribute('data-theme', saved);
+
+    function updateIcon() {
+      const isDark = html.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>';
+      } else {
+        themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+      }
+    }
+    updateIcon();
+
+    themeToggle.addEventListener('click', () => {
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('kernel-theme', next);
+      updateIcon();
+    });
+
+    // ===== MOBILE MENU =====
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    const navLinks = document.getElementById('navLinks');
+
+    mobileBtn.addEventListener('click', () => {
+      navLinks.classList.toggle('open');
+    });
+
+    navLinks.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        navLinks.classList.remove('open');
+      });
+    });
+
+    // ===== SCROLL PROGRESS + SCROLL TO TOP (single listener for performance) =====
+    const progressBar = document.getElementById('progressBar');
+    const scrollTopBtn = document.getElementById('scrollTopBtn');
+    const scrollFill = document.querySelector('.scroll-top-fill');
+    const ringLength = 113.1; // 2 * pi * 18
+    let lastScrollUpPos = 0;
+
+    window.addEventListener('scroll', () => {
+      const scrollY = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const scrollPercent = docHeight > 0 ? scrollY / docHeight : 0;
+
+      // Progress bar
+      progressBar.style.width = (scrollPercent * 100) + '%';
+
+      // Nav shadow
+      document.getElementById('navbar').classList.toggle('scrolled', scrollY > 20);
+
+      // Scroll-to-top visibility (appears when scrolling UP past 400px)
+      if (scrollY < lastScrollUpPos && scrollY > 400) {
+        scrollTopBtn.classList.add('visible');
+      } else if (scrollY < 400 || scrollY > lastScrollUpPos) {
+        scrollTopBtn.classList.remove('visible');
+      }
+
+      // Progress ring fill
+      scrollFill.style.strokeDashoffset = ringLength - (scrollPercent * ringLength);
+
+      lastScrollUpPos = scrollY;
+    }, { passive: true });
+
+    scrollTopBtn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // ===== SCROLL ANIMATIONS (IntersectionObserver) =====
+    const revealElements = document.querySelectorAll('.reveal');
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, {
+      threshold: 0.05,
+      rootMargin: '0px 0px -30px 0px'
+    });
+
+    revealElements.forEach(el => observer.observe(el));
+
+    // ===== PRICING TOGGLE (Monthly / Annual) =====
+    const billingToggle = document.getElementById('billingToggle');
+    const monthlyLabel = document.getElementById('monthlyLabel');
+    const annualLabel = document.getElementById('annualLabel');
+    let isAnnual = false;
+
+    const pricingPrices = document.querySelectorAll('.pricing-price');
+    const starterOriginal = document.getElementById('starterOriginal');
+    const proOriginal = document.getElementById('proOriginal');
+    const starterDesc = document.getElementById('starterDesc');
+    const proDesc = document.getElementById('proDesc');
+
+    billingToggle.addEventListener('click', () => {
+      isAnnual = !isAnnual;
+      billingToggle.classList.toggle('active', isAnnual);
+      monthlyLabel.classList.toggle('active', !isAnnual);
+      annualLabel.classList.toggle('active', isAnnual);
+
+      pricingPrices.forEach(el => {
+        const monthly = el.dataset.monthly;
+        const annual = el.dataset.annual;
+        if (isAnnual && annual !== '$0') {
+          el.innerHTML = annual + ' <span>/yr</span>';
+        } else {
+          el.innerHTML = monthly + ' <span>/mo</span>';
+        }
+      });
+
+      // Show struck-through original prices on annual
+      if (isAnnual) {
+        starterOriginal.style.display = 'inline';
+        proOriginal.style.display = 'inline';
+        starterDesc.textContent = '$3.75/mo billed annually — save $15';
+        proDesc.textContent = '$7/mo billed annually — save $36';
+      } else {
+        starterOriginal.style.display = 'none';
+        proOriginal.style.display = 'none';
+        starterDesc.textContent = 'For regular use';
+        proDesc.textContent = 'For power users';
+      }
+    });
+
+    // ===== FAQ ACCORDION =====
+    document.querySelectorAll('.faq-question').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = btn.parentElement;
+        const isOpen = item.classList.contains('open');
+
+        // Close all
+        document.querySelectorAll('.faq-item.open').forEach(el => {
+          el.classList.remove('open');
+        });
+
+        // Open clicked if it wasn't open
+        if (!isOpen) {
+          item.classList.add('open');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
