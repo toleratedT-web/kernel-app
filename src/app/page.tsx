@@ -1,51 +1,9 @@
-// ============================================================================
-// Kernel — Marketing Landing Page (MVP placeholder)
-// ============================================================================
-// Redirects authenticated users to dashboard, shows landing to guests.
-
-"use client";
-
-import { useEffect, useState } from "react";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { AuthRedirect } from "@/components/auth/AuthRedirect";
 
 export default function HomePage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const supabase = getSupabaseClient();
-
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      setLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription?.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!loading && user) {
-      window.location.href = "/receipts";
-    }
-  }, [loading, user]);
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-kernel-500 border-t-transparent" />
-      </div>
-    );
-  }
-
   return (
     <main className="min-h-screen">
+      <AuthRedirect />
       {/* Hero Section */}
       <section className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
         <div className="mx-auto max-w-3xl">
@@ -77,16 +35,10 @@ export default function HomePage() {
           </p>
 
           <div className="flex items-center justify-center gap-4">
-            <a
-              href="/auth/signup"
-              className="btn-primary text-base"
-            >
+            <a href="/auth/signup" className="btn-primary text-base">
               Get started free
             </a>
-            <a
-              href="/auth/login"
-              className="btn-secondary text-base"
-            >
+            <a href="/auth/login" className="btn-secondary text-base">
               Sign in
             </a>
           </div>
@@ -100,7 +52,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t border-gray-200 px-4 py-8 text-center dark:border-gray-800">
         <p className="text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} Kernel. All rights reserved.
+          &copy; 2026 Kernel. All rights reserved.
         </p>
       </footer>
     </main>
