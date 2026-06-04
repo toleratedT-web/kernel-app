@@ -1170,3 +1170,6 @@ This architecture is designed for a solo developer building on evenings and week
 5. **Swap-ready** — Gemini can be swapped for Claude. Supabase can be migrated to raw Postgres. The abstractions are thin on purpose.
 
 The MVP builds one complete vertical slice: Auth → Scan → OCR → Edit → Save → Sheets Export. Everything after is additive.
+
+
+
